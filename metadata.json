@@ -1,0 +1,5 @@
+{
+  "name": "AI Invoice Processing Workflow",
+  "description": "An automated invoice processing system using AI. Applicants upload invoices, and the system uses LLMs to extract data, suggest categories, and route for approvals through a multi-step workflow involving managers, accounting, and reviewers.",
+  "requestFramePermissions": []
+}
