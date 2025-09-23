@@ -113,32 +113,53 @@ const NewInvoiceModal: React.FC<{ isOpen: boolean; onClose: () => void; }> = ({ 
             {extractedData && (
                  <div className="space-y-4">
                      <p className="text-sm text-green-700 bg-green-100 p-3 rounded-md">AIによる読み取りが完了しました。内容を確認・修正して申請してください。</p>
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
+                        {/* Left side: Form */}
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">ベンダー名</label>
+                                <input type="text" value={extractedData.vendor || ''} onChange={e => handleInputChange('vendor', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">請求書番号</label>
+                                <input type="text" value={extractedData.invoiceNumber || ''} onChange={e => handleInputChange('invoiceNumber', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2" />
+                            </div>
+                             <div>
+                                <label className="block text-sm font-medium text-gray-700">金額</label>
+                                <input type="number" value={extractedData.amount || ''} onChange={e => handleInputChange('amount', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">発行日</label>
+                                <input type="date" value={extractedData.issueDate || ''} onChange={e => handleInputChange('issueDate', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2" />
+                            </div>
+                             <div>
+                                <label className="block text-sm font-medium text-gray-700">勘定科目 (AI推奨)</label>
+                                <select value={extractedData.accountTitle || ''} onChange={e => handleInputChange('accountTitle', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2">
+                                    {MOCK_ACCOUNT_TITLES.map(title => <option key={title.id} value={title.name}>{title.name}</option>)}
+                                </select>
+                            </div>
+                        </div>
+                         {/* Right side: Image Preview */}
                         <div>
-                            <label className="block text-sm font-medium text-gray-700">ベンダー名</label>
-                            <input type="text" value={extractedData.vendor || ''} onChange={e => handleInputChange('vendor', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2" />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">請求書番号</label>
-                            <input type="text" value={extractedData.invoiceNumber || ''} onChange={e => handleInputChange('invoiceNumber', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2" />
-                        </div>
-                         <div>
-                            <label className="block text-sm font-medium text-gray-700">金額</label>
-                            <input type="number" value={extractedData.amount || ''} onChange={e => handleInputChange('amount', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2" />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">発行日</label>
-                            <input type="date" value={extractedData.issueDate || ''} onChange={e => handleInputChange('issueDate', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2" />
-                        </div>
-                         <div className="md:col-span-2">
-                            <label className="block text-sm font-medium text-gray-700">勘定科目 (AI推奨)</label>
-                            <select value={extractedData.accountTitle || ''} onChange={e => handleInputChange('accountTitle', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2">
-                                {MOCK_ACCOUNT_TITLES.map(title => <option key={title.id} value={title.name}>{title.name}</option>)}
-                            </select>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">アップロード画像</label>
+                            <div className="aspect-[3/4] bg-gray-100 rounded-lg overflow-hidden border">
+                                {extractedData.imageUrl ? (
+                                    <img src={extractedData.imageUrl} alt="Invoice Preview" className="w-full h-full object-contain" />
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-gray-500">
+                                        プレビューなし
+                                    </div>
+                                )}
+                            </div>
                         </div>
                      </div>
-                     <div className="flex justify-end pt-4">
-                        <button onClick={handleSubmit} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg">申請する</button>
+                     <div className="flex justify-end pt-4 mt-4 border-t">
+                        <button type="button" onClick={handleClose} className="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                            キャンセル
+                        </button>
+                        <button onClick={handleSubmit} className="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                            申請する
+                        </button>
                     </div>
                  </div>
             )}
