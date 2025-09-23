@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { UserRole } from './types';
 import type { User } from './types';
@@ -12,6 +11,7 @@ import AccountingView from './views/AccountingView';
 import ScrutinizerView from './views/ScrutinizerView';
 import PmoView from './views/PmoView';
 import AdminView from './views/AdminView';
+import AuditView from './views/AuditView';
 
 const users: Record<UserRole, User> = {
   [UserRole.Applicant]: { id: 'user-1', name: '田中 太郎', role: UserRole.Applicant },
@@ -19,6 +19,7 @@ const users: Record<UserRole, User> = {
   [UserRole.Accounting]: { id: 'user-3', name: '佐藤 花子', role: UserRole.Accounting },
   [UserRole.Scrutinizer]: { id: 'user-4', name: '高橋 次郎', role: UserRole.Scrutinizer },
   [UserRole.PMO]: { id: 'user-5', name: '伊藤 三郎', role: UserRole.PMO },
+  [UserRole.Auditor]: { id: 'user-9', name: '監査 正', role: UserRole.Auditor },
   [UserRole.Admin]: { id: 'user-6', name: '渡辺 四郎', role: UserRole.Admin },
 };
 
@@ -39,6 +40,8 @@ const App: React.FC = () => {
         return <ScrutinizerView />;
       case UserRole.PMO:
         return <PmoView />;
+      case UserRole.Auditor:
+        return <AuditView />;
       case UserRole.Admin:
         return <AdminView />;
       default:

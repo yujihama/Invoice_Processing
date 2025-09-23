@@ -81,7 +81,6 @@ const LlmSettings: React.FC = () => {
     );
 }
 
-
 const AdminView: React.FC = () => {
     const [accountTitles, setAccountTitles] = useState<AccountTitle[]>(MOCK_ACCOUNT_TITLES);
     const [purchasingCategories, setPurchasingCategories] = useState<PurchasingCategory[]>(MOCK_PURCHASING_CATEGORIES);

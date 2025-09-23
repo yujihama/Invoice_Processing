@@ -4,19 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Invoice Processing Workflow</title>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-    <script>
-      // Mock environment variables for development.
-      // In a real production environment, these should be handled securely.
-      var process = {
-        env: {
-          API_KEY: "YOUR_GEMINI_API_KEY_HERE", // IMPORTANT: This key is for Gemini. The app will not work without it.
-          // Placeholders for Azure OpenAI
-          AZURE_OPENAI_ENDPOINT: "YOUR_AZURE_ENDPOINT_HERE",
-          AZURE_OPENAI_API_KEY: "YOUR_AZURE_API_KEY_HERE"
-        }
-      };
-    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
     <script type="importmap">
     {
       "imports": {
@@ -32,6 +20,6 @@
 <body class="bg-gray-100">
     <noscript>You need to enable JavaScript to run this app.</noscript>
     <div id="root"></div>
-    <script type="module" src="/index.tsx"></script>
+    <script type="module" src="./index.tsx"></script>
 </body>
 </html>

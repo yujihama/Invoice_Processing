@@ -65,7 +65,10 @@ const NewInvoiceModal: React.FC<{ isOpen: boolean; onClose: () => void; }> = ({ 
     const handleSubmit = () => {
         if (!extractedData || !currentUser) return;
         
-        const newInvoice: Omit<Invoice, 'id' | 'history'> = {
+        // FIX: The type for newInvoice was `Omit<Invoice, 'id' | 'history'>`, which requires
+        // the `auditHistory` property. The `addInvoice` function expects an object without it.
+        // Changed to omit `auditHistory` as well to align with the function signature and the object literal.
+        const newInvoice: Omit<Invoice, 'id' | 'history' | 'auditHistory'> = {
             applicant: currentUser,
             invoiceNumber: extractedData.invoiceNumber || '',
             vendor: extractedData.vendor || '',

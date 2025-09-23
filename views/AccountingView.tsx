@@ -1,15 +1,28 @@
 import React, { useState } from 'react';
 import { useInvoices } from '../contexts/InvoiceContext';
 import InvoiceList from '../components/InvoiceList';
-import type { Invoice } from '../types';
+import type { Invoice, ChatMessage } from '../types';
 import { InvoiceStatus } from '../types';
 import InvoiceDetailModal from './modals/InvoiceDetailModal';
 import ViewHeader from '../components/ViewHeader';
 import { exportInvoicesToCSV } from '../utils/csvExporter';
+import ChatAnalysis from '../components/ChatAnalysis';
+import { useLlmService } from '../hooks/useLlmService';
 
 const AccountingView: React.FC = () => {
   const { invoices } = useInvoices();
+  const { analyzeInvoicesWithChat } = useLlmService();
+
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    {
+      role: 'ai',
+      content: 'こんにちは。請求書データに関する分析や質問があれば、何でも聞いてください。例えば、「ベンダー毎の合計金額を教えて」のように入力できます。'
+    }
+  ]);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
 
   const forReviewInvoices = invoices.filter(
     inv => inv.status === InvoiceStatus.MismatchDetected
@@ -29,6 +42,27 @@ const AccountingView: React.FC = () => {
     exportInvoicesToCSV(invoices);
   };
 
+  const handleSendMessage = async (prompt: string) => {
+    if (!prompt) return;
+
+    const newUserMessage: ChatMessage = { role: 'user', content: prompt };
+    setMessages(prev => [...prev, newUserMessage]);
+    setIsAnalyzing(true);
+    setAnalysisError(null);
+
+    try {
+      const responseText = await analyzeInvoicesWithChat(prompt, invoices);
+      const newAiMessage: ChatMessage = { role: 'ai', content: responseText };
+      setMessages(prev => [...prev, newAiMessage]);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "不明なエラーが発生しました";
+      setAnalysisError(errorMessage);
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+
   return (
     <div className="space-y-8">
       <ViewHeader
@@ -45,6 +79,7 @@ const AccountingView: React.FC = () => {
           CSVエクスポート
         </button>
       </ViewHeader>
+      
       <div>
         <InvoiceList
           invoices={forReviewInvoices}
@@ -60,6 +95,13 @@ const AccountingView: React.FC = () => {
         />
       </div>
 
+      <ChatAnalysis
+        messages={messages}
+        onSendMessage={handleSendMessage}
+        isAnalyzing={isAnalyzing}
+        error={analysisError}
+      />
+
       {selectedInvoice && (
         <InvoiceDetailModal 
           invoice={selectedInvoice}
@@ -67,6 +109,7 @@ const AccountingView: React.FC = () => {
           onClose={handleCloseModal}
         />
       )}
+      
     </div>
   );
 };

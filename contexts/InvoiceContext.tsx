@@ -1,15 +1,16 @@
 import React, { createContext, useState, useContext, useCallback } from 'react';
 // FIX: 'InvoiceStatus' cannot be used as a value because it was imported using 'import type'.
-import type { Invoice, User } from '../types';
+import type { Invoice, User, AuditResult } from '../types';
 import { UserRole, InvoiceStatus } from '../types';
 import { MOCK_INVOICES, MOCK_USERS } from '../mockData';
 
 interface InvoiceContextType {
   invoices: Invoice[];
   getInvoice: (id: string) => Invoice | undefined;
-  addInvoice: (invoice: Omit<Invoice, 'id' | 'history'>) => void;
+  addInvoice: (invoice: Omit<Invoice, 'id' | 'history' | 'auditHistory'>) => void;
   updateInvoice: (id: string, updates: Partial<Invoice>, user: User, comment?: string) => void;
   getCorrectionsData: () => { date: string, corrections: number }[];
+  addAuditResult: (invoiceId: string, result: AuditResult) => void;
 }
 
 const InvoiceContext = createContext<InvoiceContextType | undefined>(undefined);
@@ -19,7 +20,7 @@ export const InvoiceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const getInvoice = useCallback((id: string) => invoices.find(inv => inv.id === id), [invoices]);
 
-  const addInvoice = (invoiceData: Omit<Invoice, 'id' | 'history'>) => {
+  const addInvoice = (invoiceData: Omit<Invoice, 'id' | 'history' | 'auditHistory'>) => {
     const newInvoice: Invoice = {
       ...invoiceData,
       id: `inv-${Date.now()}`,
@@ -28,6 +29,7 @@ export const InvoiceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         user: invoiceData.applicant,
         timestamp: new Date().toISOString(),
       }],
+      auditHistory: [],
     };
     setInvoices(prev => [newInvoice, ...prev]);
   };
@@ -63,8 +65,28 @@ export const InvoiceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return Object.entries(correctionsByDate).map(([date, corrections]) => ({ date, corrections }));
   };
 
+  const addAuditResult = (invoiceId: string, result: AuditResult) => {
+    setInvoices(prev => 
+      prev.map(inv => {
+        if (inv.id === invoiceId) {
+          // Avoid adding duplicate results for the same scenario
+          const alreadyExists = inv.auditHistory.some(h => h.scenarioId === result.scenarioId);
+          if (alreadyExists) {
+            // If it exists, update it
+            return {
+              ...inv,
+              auditHistory: inv.auditHistory.map(h => h.scenarioId === result.scenarioId ? result : h)
+            };
+          }
+          return { ...inv, auditHistory: [...inv.auditHistory, result] };
+        }
+        return inv;
+      })
+    );
+  };
+
   return (
-    <InvoiceContext.Provider value={{ invoices, getInvoice, addInvoice, updateInvoice, getCorrectionsData }}>
+    <InvoiceContext.Provider value={{ invoices, getInvoice, addInvoice, updateInvoice, getCorrectionsData, addAuditResult }}>
       {children}
     </InvoiceContext.Provider>
   );

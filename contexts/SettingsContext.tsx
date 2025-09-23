@@ -1,21 +1,31 @@
 
 import React, { createContext, useState, useContext, useMemo } from 'react';
-import { LlmProvider } from '../types';
+import { LlmProvider, AuditScenario } from '../types';
+import { MOCK_AUDIT_SCENARIOS } from '../mockData';
 
 interface SettingsContextType {
   llmProvider: LlmProvider;
   setLlmProvider: (provider: LlmProvider) => void;
+  auditScenarios: AuditScenario[];
+  addAuditScenario: (scenario: AuditScenario) => void;
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
 export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [llmProvider, setLlmProvider] = useState<LlmProvider>(LlmProvider.Gemini);
+  const [auditScenarios, setAuditScenarios] = useState<AuditScenario[]>(MOCK_AUDIT_SCENARIOS);
+
+  const addAuditScenario = (scenario: AuditScenario) => {
+    setAuditScenarios(prev => [...prev, scenario]);
+  };
 
   const value = useMemo(() => ({
     llmProvider,
     setLlmProvider,
-  }), [llmProvider]);
+    auditScenarios,
+    addAuditScenario,
+  }), [llmProvider, auditScenarios]);
 
   return (
     <SettingsContext.Provider value={value}>

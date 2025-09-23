@@ -1,5 +1,6 @@
 
-import type { AccountTitle, PurchasingCategory, Invoice } from '../types';
+
+import type { AccountTitle, PurchasingCategory, Invoice, AuditScenario } from '../types';
 
 // This is a mock service for Azure OpenAI to demonstrate the multi-LLM architecture.
 // In a real application, this would use the Azure OpenAI SDK.
@@ -68,4 +69,42 @@ export const suggestPurchasingCategory = async (
     // Return a random category
     const suggestedCategory = categories[Math.floor(Math.random() * categories.length)].name;
     return suggestedCategory;
+};
+
+export const analyzeInvoicesWithChat = async (
+    prompt: string,
+    invoices: Invoice[]
+): Promise<string> => {
+    console.log("Calling Azure OpenAI (mock) for chat analysis with prompt:", prompt);
+    await new Promise(resolve => setTimeout(resolve, MOCK_DELAY));
+    
+    // Mock text response
+    return `承知いたしました。「${prompt}」について分析します。現在、合計${invoices.length}件の請求書があります。(Azure OpenAI Mock)`;
+};
+
+
+export const performBulkAuditCheckForInvoice = async (
+  invoice: Invoice,
+  scenarios: AuditScenario[],
+  allInvoices?: Invoice[],
+): Promise<Array<{ scenarioId: string; result: 'pass' | 'fail'; comment: string }>> => {
+  console.log(`Calling Azure OpenAI (mock) for bulk audit on invoice ${invoice.id}`);
+  await new Promise(resolve => setTimeout(resolve, 1000)); // Shorter delay for mock
+
+  return scenarios.map(scenario => {
+    // Simulate a 20% chance of failure for each scenario
+    if (Math.random() < 0.2) {
+      return {
+        scenarioId: scenario.id,
+        result: 'fail',
+        comment: `監査シナリオ「${scenario.name}」に違反の可能性。(Azure OpenAI Mock)`,
+      };
+    } else {
+      return {
+        scenarioId: scenario.id,
+        result: 'pass',
+        comment: '監査OK (Azure OpenAI Mock)',
+      };
+    }
+  });
 };

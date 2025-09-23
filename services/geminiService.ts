@@ -1,8 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import type { AccountTitle, PurchasingCategory, Invoice } from '../types';
-
-// This service now uses the actual Gemini API.
-// Make sure to replace the placeholder API_KEY in index.html
+import type { AccountTitle, PurchasingCategory, Invoice, AuditScenario } from '../types';
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
 
@@ -154,4 +151,124 @@ export const suggestPurchasingCategory = async (
         // Fallback to the first category on error
         return categories[0].name;
     }
+};
+
+export const analyzeInvoicesWithChat = async (
+    prompt: string,
+    invoices: Invoice[]
+): Promise<string> => {
+    console.log("Calling AI for chat analysis");
+
+    // Create a sanitized version of the invoices without the bulky and irrelevant image URL.
+    const sanitizedInvoices = invoices.map(({ imageUrl, ...rest }) => rest);
+
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: `User Query: ${prompt}\n\nInvoice Data:\n${JSON.stringify(sanitizedInvoices)}`,
+            config: {
+                systemInstruction: `あなたは会計部門の優秀なAIデータアナリストです。提供されたJSON形式の請求書データとユーザーの質問に基づき、分析して自然言語で回答してください。`,
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        text: {
+                            type: Type.STRING,
+                            description: "A natural language summary of the findings or answer to the question."
+                        },
+                    },
+                    required: ["text"]
+                },
+                maxOutputTokens: 8192,
+            }
+        });
+        
+        const result = JSON.parse(response.text);
+        return result.text;
+
+    } catch (error) {
+        console.error("Error during chat analysis:", error);
+        throw new Error("AIによる分析中にエラーが発生しました。");
+    }
+};
+
+export const performBulkAuditCheckForInvoice = async (
+  invoice: Invoice,
+  scenarios: AuditScenario[],
+  allInvoices?: Invoice[],
+): Promise<Array<{ scenarioId: string; result: 'pass' | 'fail'; comment: string }>> => {
+  console.log(`Performing bulk audit for invoice ${invoice.id} against ${scenarios.length} scenarios.`);
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { imageUrl, ...sanitizedInvoice } = invoice;
+
+  let allInvoicesContext = '';
+  if (scenarios.some(s => s.scope === 'all') && allInvoices) {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const sanitizedAllInvoices = allInvoices.map(({ imageUrl, ...rest }) => rest);
+      allInvoicesContext = `\n\n## Context: All Other Invoices:\n${JSON.stringify(sanitizedAllInvoices, null, 2)}`;
+  }
+  
+  const scenariosPrompt = scenarios.map(scenario => {
+    const documentsText = scenario.documents.map(d => `--- Document: ${d.name} ---\n${d.content}`).join('\n');
+    return `
+      ---
+      Scenario ID: "${scenario.id}"
+      Scenario Name: "${scenario.name}"
+      Description: ${scenario.description}
+      Rule to Check: ${scenario.prompt}
+      Associated Documents: ${documentsText || 'None'}
+    `;
+  }).join('');
+
+  const prompt = `
+    You are an expert internal auditor.
+    Analyze the following invoice data based on ALL the provided audit scenarios.
+    Evaluate the invoice against each scenario independently and return a result for each one.
+
+    ## Invoice Data to Audit:
+    ${JSON.stringify(sanitizedInvoice, null, 2)}
+    ${allInvoicesContext}
+
+    ## Audit Scenarios to Evaluate:
+    ${scenariosPrompt}
+    ---
+
+    Based on your analysis, provide a JSON array where each object represents the result for one scenario.
+    Each object must contain "scenarioId", "result" ('pass' or 'fail'), and a "comment".
+    If a scenario passes, the comment should be '監査OK'.
+    If it fails, provide a clear and concise comment explaining the reason.
+  `;
+  
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              scenarioId: { type: Type.STRING, description: "The ID of the scenario being evaluated." },
+              result: { type: Type.STRING, enum: ["pass", "fail"], description: "The result of the audit check." },
+              comment: { type: Type.STRING, description: "A comment explaining the reason for failure, or '監査OK' for a pass." }
+            },
+            required: ["scenarioId", "result", "comment"]
+          }
+        }
+      }
+    });
+
+    return JSON.parse(response.text);
+
+  } catch (error) {
+    console.error(`Error during bulk audit check for invoice ${invoice.id}:`, error);
+    return scenarios.map(scenario => ({
+      scenarioId: scenario.id,
+      result: 'fail',
+      comment: `AIによる一括監査チェック中にエラーが発生しました: ${error instanceof Error ? error.message : 'Unknown Error'}`
+    }));
+  }
 };

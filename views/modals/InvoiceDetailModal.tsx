@@ -208,6 +208,30 @@ const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({ invoice, isOpen
                     ))}
                 </ul>
             </div>
+            {invoice.auditHistory && invoice.auditHistory.length > 0 && (
+                <div className="mt-8">
+                    <h4 className="text-lg font-semibold text-gray-800 mb-4">監査履歴</h4>
+                    <ul className="space-y-3">
+                        {invoice.auditHistory.slice().reverse().map((h, i) => (
+                            <li key={i} className={`p-3 rounded-md border ${h.result === 'fail' ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'}`}>
+                                <div className="flex justify-between items-center">
+                                    <div>
+                                        <p className="font-semibold">{h.scenarioName}</p>
+                                        <p className="text-sm text-gray-700 mt-1">監査者: {h.checkedBy.name} ({h.checkedBy.role})</p>
+                                    </div>
+                                    <div className="text-right">
+                                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${h.result === 'fail' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
+                                            {h.result === 'fail' ? '指摘事項あり' : '監査OK'}
+                                        </span>
+                                        <p className="text-xs text-gray-500 mt-1">{new Date(h.checkedAt).toLocaleString('ja-JP')}</p>
+                                    </div>
+                                </div>
+                                <p className="text-sm mt-2 pt-2 border-t text-gray-600 italic">コメント: {h.comment}</p>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            )}
         </Modal>
     );
 };

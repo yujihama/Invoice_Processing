@@ -1,10 +1,10 @@
-
 export enum UserRole {
   Applicant = '申請者',
   Manager = '上長',
   Accounting = '経理部',
   Scrutinizer = '精査担当',
   PMO = 'PMO',
+  Auditor = '監査担当',
   Admin = '管理者',
 }
 
@@ -12,6 +12,7 @@ export interface User {
   id: string;
   name: string;
   role: UserRole;
+  title?: string;
 }
 
 export enum InvoiceStatus {
@@ -23,6 +24,15 @@ export enum InvoiceStatus {
   AccountingRejected = '経理差戻し',
   PendingScrutiny = '精査担当確認待ち',
   Completed = '完了',
+}
+
+export interface AuditResult {
+  scenarioId: string;
+  scenarioName: string;
+  checkedAt: string;
+  result: 'pass' | 'fail';
+  comment: string;
+  checkedBy: User;
 }
 
 export interface Invoice {
@@ -38,6 +48,7 @@ export interface Invoice {
   imageUrl: string;
   history: { status: InvoiceStatus; user: User; timestamp: string, comment?: string }[];
   isCorrectedByScrutinizer?: boolean;
+  auditHistory: AuditResult[];
 }
 
 export interface AccountTitle {
@@ -59,4 +70,18 @@ export interface DailyCorrection {
 export enum LlmProvider {
   Gemini = 'Gemini',
   Azure = 'Azure OpenAI',
+}
+
+export interface ChatMessage {
+  role: 'user' | 'ai';
+  content: string;
+}
+
+export interface AuditScenario {
+  id: string;
+  name: string;
+  description: string;
+  prompt: string;
+  documents: { name: string; content: string }[];
+  scope: 'single' | 'all';
 }
