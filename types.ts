@@ -85,3 +85,38 @@ export interface AuditScenario {
   documents: { name: string; content: string }[];
   scope: 'single' | 'all';
 }
+
+export interface InternalVerificationResult {
+  invoice: Invoice;
+  status: 'pass' | 'fail';
+  reason: string;
+}
+
+export interface ExternalVerificationItem {
+  id: string;
+  label: string;
+}
+
+export interface ExternalVerificationResult {
+  fileName: string;
+  status: 'pass' | 'fail';
+  reason: string;
+  csvData?: Record<string, string>;
+}
+
+export interface DesignEvaluationResult {
+  status: 'pass' | 'fail' | 'needs_improvement';
+  summary: string;
+  details: string[];
+}
+
+export interface DataComplianceResult {
+  status: 'pass' | 'fail' | 'needs_investigation';
+  summary: string;
+  discrepancies: string[];
+}
+
+export interface OperationalReadinessResult {
+  designEvaluation: DesignEvaluationResult;
+  dataCompliance: DataComplianceResult;
+}

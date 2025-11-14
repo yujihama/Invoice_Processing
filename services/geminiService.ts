@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import type { AccountTitle, PurchasingCategory, Invoice, AuditScenario } from '../types';
+import type { AccountTitle, PurchasingCategory, Invoice, AuditScenario, OperationalReadinessResult } from '../types';
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
 
@@ -14,6 +14,19 @@ const toBase64 = (fileOrBlob: File | Blob): Promise<string> => new Promise((reso
       resolve(base64String);
     } else {
       reject(new Error("Failed to convert file to base64."));
+    }
+  };
+  reader.onerror = error => reject(error);
+});
+
+const fileToText = (file: File): Promise<string> => new Promise((resolve, reject) => {
+  const reader = new FileReader();
+  reader.readAsText(file);
+  reader.onload = () => {
+    if (typeof reader.result === 'string') {
+      resolve(reader.result);
+    } else {
+      reject(new Error("Failed to read file as text."));
     }
   };
   reader.onerror = error => reject(error);
@@ -122,6 +135,90 @@ export const verifyInvoiceData = async (
       // Fallback to a "mismatch" to force manual review if AI fails
       return { match: false, reason: "AIによる照合中にエラーが発生しました。手動で確認してください。" };
     }
+};
+
+export const extractInvoiceNumberFromFile = async (file: File): Promise<string | null> => {
+  console.log("Calling AI to extract invoice number from file:", file.name);
+  try {
+    const base64Image = await toBase64(file);
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: { 
+        parts: [
+          { inlineData: { mimeType: file.type, data: base64Image } },
+          { text: "この請求書から請求書番号(invoice number)だけを抽出し、その番号の文字列だけを返してください。" }
+        ]
+      },
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            invoiceNumber: { type: Type.STRING, description: "請求書に記載されている番号" },
+          },
+          required: ["invoiceNumber"]
+        }
+      }
+    });
+    const result = JSON.parse(response.text);
+    return result.invoiceNumber;
+  } catch (error) {
+    console.error("Error during invoice number extraction:", error);
+    return null; // Return null on failure
+  }
+};
+
+export const verifyExternalData = async (
+  file: File,
+  record: Record<string, string>,
+  fieldsToVerify: { id: string; label: string }[]
+): Promise<{ match: boolean; reason: string }> => {
+  console.log("Calling AI for external data verification for file:", file.name);
+  try {
+    const base64Image = await toBase64(file);
+
+    const dataToVerify = fieldsToVerify
+      .map(field => `- ${field.label}: ${record[field.id] || 'N/A'}`)
+      .join('\n');
+
+    const prompt = `
+      添付された請求書の画像と、以下のCSVデータを照合してください。
+      検証対象の項目は以下の通りです:
+      
+      CSVデータ:
+      ${dataToVerify}
+      
+      画像の内容とCSVデータが指定された項目において完全に一致していますか？
+      一致しない場合は、どの項目がどのように違うか具体的に理由を述べてください。
+    `;
+    
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: {
+        parts: [
+          { inlineData: { mimeType: file.type, data: base64Image } },
+          { text: prompt }
+        ]
+      },
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            match: { type: Type.BOOLEAN, description: "画像とデータが指定された項目において一致していればtrue" },
+            reason: { type: Type.STRING, description: "一致しない場合はその理由、一致していれば「照合OK」と記載" }
+          },
+          required: ["match", "reason"]
+        }
+      }
+    });
+
+    return JSON.parse(response.text);
+
+  } catch (error) {
+    console.error(`Error during external data verification for ${file.name}:`, error);
+    return { match: false, reason: `AIによる照合中にエラーが発生しました: ${error instanceof Error ? error.message : "不明なエラー"}` };
+  }
 };
 
 export const suggestPurchasingCategory = async (
@@ -270,5 +367,88 @@ export const performBulkAuditCheckForInvoice = async (
       result: 'fail',
       comment: `AIによる一括監査チェック中にエラーが発生しました: ${error instanceof Error ? error.message : 'Unknown Error'}`
     }));
+  }
+};
+
+export const evaluateOperationalReadiness = async (
+  definitionDoc: File,
+  journalData: File,
+  invoices: Invoice[]
+): Promise<OperationalReadinessResult> => {
+  console.log("Calling AI for operational readiness evaluation.");
+
+  try {
+    const definitionDocContent = await fileToText(definitionDoc);
+    const journalDataContent = await fileToText(journalData);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const sanitizedInvoices = invoices.map(({ imageUrl, history, auditHistory, ...rest }) => rest);
+
+    const prompt = `
+      あなたは財務・会計システムを専門とする熟練のITシステム監査人です。
+      あなたのタスクは、請求書処理システムと後続の会計システム間のデータ連携プロセスの整備状況を評価することです。
+      以下の2つの個別の評価を実施してください。
+
+      **評価1：仕訳定義書の評価**
+      提供された「仕訳定義書」を確認してください。この文書は、完了した請求書データがどのように会計システムの仕訳データに変換されるかを記述している必要があります。
+      設計が明確かつ適切に文書化されているかを評価してください。特に、請求書データ（例：請求金額、ベンダー、勘定科目、発行日）が、仕訳の項目（例：借方/貸方勘定、金額、摘要、日付）にどのようにマッピングされるかが網羅されているかを確認してください。
+
+      **評価2：データコンプライアンスと整合性チェック**
+      「仕訳定義書」に記述されたルールとロジックに基づき、「完了済み請求書データ」と提供された「仕訳データ」を比較してください。
+      仕訳が設計通りに正しく作成されているかを検証してください。金額の不一致、勘定マッピングの間違い、対応する仕訳の欠落など、具体的な不一致点を指摘してください。もし仕訳データが設計通りであれば、その旨を述べてください。
+
+      **提供データ:**
+
+      --- 仕訳定義書 ---
+      ${definitionDocContent}
+      --- 仕訳定義書 終了 ---
+
+      --- 仕訳データ ---
+      ${journalDataContent}
+      --- 仕訳データ 終了 ---
+
+      --- 完了済み請求書データ (JSON) ---
+      ${JSON.stringify(sanitizedInvoices, null, 2)}
+      --- 完了済み請求書データ 終了 ---
+
+      **出力フォーマット:**
+      評価結果を以下のJSON形式で提供してください。
+    `;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-pro',
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            designEvaluation: {
+              type: Type.OBJECT,
+              properties: {
+                status: { type: Type.STRING, enum: ["pass", "fail", "needs_improvement"], description: "評価結果（pass: 問題なし, fail: 重大な問題あり, needs_improvement: 改善の余地あり）" },
+                summary: { type: Type.STRING, description: "仕訳定義書評価の要約" },
+                details: { type: Type.ARRAY, items: { type: Type.STRING }, description: "具体的な所見や推奨事項" }
+              },
+              required: ["status", "summary", "details"]
+            },
+            dataCompliance: {
+              type: Type.OBJECT,
+              properties: {
+                status: { type: Type.STRING, enum: ["pass", "fail", "needs_investigation"], description: "評価結果（pass: 整合OK, fail: 不整合あり, needs_investigation: 要調査）" },
+                summary: { type: Type.STRING, description: "データコンプライアンスチェックの要約" },
+                discrepancies: { type: Type.ARRAY, items: { type: Type.STRING }, description: "発見された具体的な不一致点のリスト" }
+              },
+              required: ["status", "summary", "discrepancies"]
+            }
+          }
+        }
+      }
+    });
+
+    return JSON.parse(response.text);
+
+  } catch (error) {
+    console.error("Error during operational readiness evaluation:", error);
+    throw new Error("AIによる整備状況評価に失敗しました。");
   }
 };

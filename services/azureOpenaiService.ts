@@ -1,6 +1,6 @@
 
 
-import type { AccountTitle, PurchasingCategory, Invoice, AuditScenario } from '../types';
+import type { AccountTitle, PurchasingCategory, Invoice, AuditScenario, OperationalReadinessResult } from '../types';
 
 // This is a mock service for Azure OpenAI to demonstrate the multi-LLM architecture.
 // In a real application, this would use the Azure OpenAI SDK.
@@ -59,6 +59,41 @@ export const verifyInvoiceData = async (
     }
 };
 
+export const extractInvoiceNumberFromFile = async (file: File): Promise<string | null> => {
+    console.log("Calling Azure OpenAI (mock) to extract invoice number from file:", file.name);
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    // Mock response: for "invoice2.pdf", we can return "INV-002" for example.
+    const match = file.name.match(/(\d+)/);
+    if (match) {
+        return `INV-${String(match[1]).padStart(3, '0')}`;
+    }
+    return `AZ-INV-${Math.floor(Math.random() * 900) + 100}`;
+};
+
+export const verifyExternalData = async (
+  file: File,
+  record: Record<string, string>,
+  fieldsToVerify: { id: string; label: string }[]
+): Promise<{ match: boolean; reason: string }> => {
+  console.log("Calling Azure OpenAI (mock) for external data verification for file:", file.name);
+  await new Promise(resolve => setTimeout(resolve, MOCK_DELAY));
+
+  // Simulate a random chance of mismatch based on a hash of the filename to be consistent
+  let hash = 0;
+  for (let i = 0; i < file.name.length; i++) {
+      const char = file.name.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32bit integer
+  }
+
+  if (fieldsToVerify.length > 0 && Math.abs(hash) % 4 === 0) { // ~25% chance of mismatch
+    const failingField = fieldsToVerify[Math.abs(hash) % fieldsToVerify.length];
+    return { match: false, reason: `${failingField.label}がCSVデータ (${record[failingField.id] || 'N/A'}) と一致しません (Azure OpenAI Mock)` };
+  } else {
+    return { match: true, reason: "照合OK (Azure OpenAI Mock)" };
+  }
+};
+
 export const suggestPurchasingCategory = async (
   invoice: Invoice,
   categories: PurchasingCategory[]
@@ -107,4 +142,32 @@ export const performBulkAuditCheckForInvoice = async (
       };
     }
   });
+};
+
+export const evaluateOperationalReadiness = async (
+  definitionDoc: File,
+  journalData: File,
+  invoices: Invoice[]
+): Promise<OperationalReadinessResult> => {
+  console.log("Calling Azure OpenAI (mock) for operational readiness evaluation.");
+  await new Promise(resolve => setTimeout(resolve, 3000));
+
+  return {
+    designEvaluation: {
+      status: 'needs_improvement',
+      summary: '仕訳定義書は全体的に網羅されていますが、エラー処理に関する記述が不足しています。(Azure OpenAI Mock)',
+      details: [
+        '勘定科目がマスターに存在しない場合のリジェクト処理が定義されていません。',
+        '消費税の計算ロジックが不明確です。'
+      ]
+    },
+    dataCompliance: {
+      status: 'fail',
+      summary: `${invoices.length}件中2件の請求書で不整合が発見されました。(Azure OpenAI Mock)`,
+      discrepancies: [
+        'INV-2023-004: 摘要欄に記載されたプロジェクトコードが、請求書の購買カテゴリと一致しません。',
+        'INV-2023-005: 貸方勘定が「未払金」であるべきところ、「買掛金」として計上されています。'
+      ]
+    }
+  };
 };
